@@ -1,0 +1,93 @@
+name: Deploy to Staging
+
+on:
+  push:
+    branches: [ staging ]
+  workflow_dispatch:
+
+env:
+  DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+  BACKEND_IMAGE: njangihub-backend
+  DEPLOY_PATH: /opt/njangihub
+
+jobs:
+  deploy-staging:
+    name: Deploy to Staging Server
+    runs-on: ubuntu-latest
+    environment: staging
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set image tag
+        id: vars
+        run: echo "IMAGE_TAG=staging-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Deploy to Staging Server
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.STAGING_VPS_HOST }}
+          username: ${{ secrets.STAGING_VPS_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.STAGING_VPS_PORT || 22 }}
+          script: |
+            echo "🚀 Starting deployment to staging environment..."
+            
+            cd ${{ env.DEPLOY_PATH }}/staging || mkdir -p ${{ env.DEPLOY_PATH }}/staging && cd ${{ env.DEPLOY_PATH }}/staging
+            
+            if [ -d ".git" ]; then
+              git fetch origin staging
+              git reset --hard origin/staging
+            else
+              git clone -b staging ${{ secrets.REPO_URL }} .
+            fi
+            
+            echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+            
+            docker pull ${{ env.DOCKERHUB_USERNAME }}/${{ env.BACKEND_IMAGE }}:${{ steps.vars.outputs.IMAGE_TAG }}
+            
+            docker tag ${{ env.DOCKERHUB_USERNAME }}/${{ env.BACKEND_IMAGE }}:${{ steps.vars.outputs.IMAGE_TAG }} \
+                       ${{ env.DOCKERHUB_USERNAME }}/${{ env.BACKEND_IMAGE }}:staging-latest
+            
+            docker-compose -f docker-compose.staging.yml down || true
+            docker-compose -f docker-compose.staging.yml up -d
+            
+            docker image prune -f
+            docker ps
+            
+            echo "✅ Deployment to staging completed!"
+
+      - name: Run smoke tests
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.STAGING_VPS_HOST }}
+          username: ${{ secrets.STAGING_VPS_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.STAGING_VPS_PORT || 22 }}
+          script: |
+            sleep 15
+            
+            # Health check
+            if curl -f http://localhost:5000/health; then
+              echo "✅ Health check passed"
+            else
+              echo "❌ Health check failed"
+              exit 1
+            fi
+            
+            # Basic API check
+            if curl -f http://localhost:5000/api; then
+              echo "✅ API is responding"
+            else
+              echo "⚠️  API check inconclusive"
+            fi
+
+      - name: Notify deployment status
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ Staging deployment successful"
+          else
+            echo "❌ Staging deployment failed"
+          fi

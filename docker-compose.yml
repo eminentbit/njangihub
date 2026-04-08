@@ -23,7 +23,6 @@ services:
       - ./backend/.env
     environment:
       - NODE_ENV=production
-      - REDIS_URL=redis://:mjlsbkCh2z8Ft63@redis:6379/0
     depends_on:
       - redis
     volumes:
@@ -41,9 +40,7 @@ services:
       - "6379:6379"
     volumes:
       - redis_data:/data
-    environment:
-      - REDIS_PASSWORD=mjlsbkCh2z8Ft63
-    command: ["redis-server", "--requirepass", "mjlsbkCh2z8Ft63"]
+    command: ["redis-server"]
 
   worker:
     build:
@@ -55,11 +52,7 @@ services:
     depends_on:
       - redis
     restart: always
-    environment:
-      - REDIS_PASSWORD=mjlsbkCh2z8Ft63
-      - REDIS_HOST: redis
-      - REDIS_PORT: 6379
-    command: ["redis-server", "--requirepass", "mjlsbkCh2z8Ft63"]
+    command: ["node", "bullMQ/workers/emailWorker.js"]
 
   cronjob:
     build:

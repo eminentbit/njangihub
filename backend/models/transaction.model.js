@@ -22,6 +22,11 @@ const transactionSchema = new Schema({
     type: Number,
     required: true,
   },
+  currency: {
+    type: String,
+    default: "XAF",
+    uppercase: true,
+  },
   groupId: {
     type: Schema.Types.ObjectId,
     ref: MODEL_NAMES.GROUP,
@@ -36,6 +41,14 @@ const transactionSchema = new Schema({
     type: String,
   },
   reference: {
+    type: String,
+  },
+  paymentProvider: {
+    type: String,
+    enum: ["campay", "stripe", "mpesa", "mtn", "paystack"],
+    default: "campay",
+  },
+  stripePaymentIntentId: {
     type: String,
   },
   note: {

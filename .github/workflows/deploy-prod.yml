@@ -1,0 +1,195 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [ main ]
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag to deploy'
+        required: false
+
+env:
+  DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+  BACKEND_IMAGE: njangihub-backend
+  DEPLOY_PATH: /opt/njangihub
+
+jobs:
+  deploy-production:
+    name: Deploy to Production Server
+    runs-on: ubuntu-latest
+    environment: production
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set image tag
+        id: vars
+        run: |
+          if [ "${{ github.event.inputs.version }}" != "" ]; then
+            echo "IMAGE_TAG=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            echo "IMAGE_TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          else
+            echo "IMAGE_TAG=main-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create backup tag
+        id: backup
+        run: echo "BACKUP_TAG=backup-$(date +%Y%m%d-%H%M%S)" >> $GITHUB_OUTPUT
+
+      - name: Backup current production
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.PROD_VPS_HOST }}
+          username: ${{ secrets.PROD_VPS_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.PROD_VPS_PORT || 22 }}
+          script: |
+            echo "📦 Creating backup of current production..."
+            
+            cd ${{ env.DEPLOY_PATH }}/production || exit 0
+            
+            # Get current running image
+            CURRENT_IMAGE=$(docker ps --filter "name=njangihub-backend" --format "{{.Image}}")
+            
+            if [ ! -z "$CURRENT_IMAGE" ]; then
+              docker tag $CURRENT_IMAGE ${{ env.DOCKERHUB_USERNAME }}/${{ env.BACKEND_IMAGE }}:${{ steps.backup.outputs.BACKUP_TAG }}
+              echo "✅ Backup created: ${{ steps.backup.outputs.BACKUP_TAG }}"
+            fi
+
+      - name: Deploy to Production Server
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.PROD_VPS_HOST }}
+          username: ${{ secrets.PROD_VPS_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.PROD_VPS_PORT || 22 }}
+          script: |
+            echo "🚀 Starting deployment to PRODUCTION environment..."
+            echo "⚠️  This is a PRODUCTION deployment!"
+            
+            cd ${{ env.DEPLOY_PATH }}/production || mkdir -p ${{ env.DEPLOY_PATH }}/production && cd ${{ env.DEPLOY_PATH }}/production
+            
+            if [ -d ".git" ]; then
+              git fetch origin main
+              git reset --hard origin/main
+            else
+              git clone -b main ${{ secrets.REPO_URL }} .
+            fi
+            
+            echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+            
+            docker pull ${{ env.DOCKERHUB_USERNAME }}/${{ env.BACKEND_IMAGE }}:${{ steps.vars.outputs.IMAGE_TAG }}
+            
+            docker tag ${{ env.DOCKERHUB_USERNAME }}/${{ env.BACKEND_IMAGE }}:${{ steps.vars.outputs.IMAGE_TAG }} \
+                       ${{ env.DOCKERHUB_USERNAME }}/${{ env.BACKEND_IMAGE }}:production-latest
+            
+            # Rolling update strategy
+            docker-compose -f docker-compose.prod.yml up -d --no-deps --build backend
+            
+            # Wait for health check
+            sleep 20
+            
+            if curl -f http://localhost:5000/health; then
+              echo "✅ New version is healthy, completing deployment..."
+              docker-compose -f docker-compose.prod.yml up -d
+            else
+              echo "❌ Health check failed! Rolling back..."
+              docker tag ${{ env.DOCKERHUB_USERNAME }}/${{ env.BACKEND_IMAGE }}:${{ steps.backup.outputs.BACKUP_TAG }} \
+                         ${{ env.DOCKERHUB_USERNAME }}/${{ env.BACKEND_IMAGE }}:production-latest
+              docker-compose -f docker-compose.prod.yml up -d
+              exit 1
+            fi
+            
+            docker image prune -f
+            docker ps
+            
+            echo "✅ Production deployment completed!"
+
+      - name: Verify production deployment
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.PROD_VPS_HOST }}
+          username: ${{ secrets.PROD_VPS_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.PROD_VPS_PORT || 22 }}
+          script: |
+            sleep 10
+            
+            # Comprehensive health checks
+            echo "Running production health checks..."
+            
+            # 1. Container status
+            if docker ps | grep -q njangihub; then
+              echo "✅ Containers are running"
+            else
+              echo "❌ Containers not running"
+              exit 1
+            fi
+            
+            # 2. Health endpoint
+            if curl -f http://localhost:5000/health; then
+              echo "✅ Health endpoint responding"
+            else
+              echo "❌ Health endpoint failed"
+              exit 1
+            fi
+            
+            # 3. Redis connection
+            if docker exec $(docker ps -q -f name=njangihub-backend) node -e "require('./redisClient.js').createRedisClient().ping().then(() => process.exit(0)).catch(() => process.exit(1))"; then
+              echo "✅ Redis connection working"
+            else
+              echo "⚠️  Redis connection check inconclusive"
+            fi
+            
+            echo "🎉 Production deployment verified!"
+
+      - name: Notify deployment status
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ PRODUCTION deployment successful"
+            echo "Version: ${{ steps.vars.outputs.IMAGE_TAG }}"
+            echo "Backup: ${{ steps.backup.outputs.BACKUP_TAG }}"
+          else
+            echo "❌ PRODUCTION deployment failed"
+            echo "Rollback may have been triggered"
+          fi
+
+  rollback:
+    name: Manual Rollback
+    runs-on: ubuntu-latest
+    environment: production
+    if: failure() || github.event_name == 'workflow_dispatch'
+    needs: deploy-production
+    
+    steps:
+      - name: Rollback production
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.PROD_VPS_HOST }}
+          username: ${{ secrets.PROD_VPS_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.PROD_VPS_PORT || 22 }}
+          script: |
+            echo "⚠️  Initiating rollback..."
+            
+            cd ${{ env.DEPLOY_PATH }}/production
+            
+            # Find latest backup
+            BACKUP_TAG=$(docker images --format "{{.Tag}}" ${{ env.DOCKERHUB_USERNAME }}/${{ env.BACKEND_IMAGE }} | grep "^backup-" | head -1)
+            
+            if [ ! -z "$BACKUP_TAG" ]; then
+              echo "Rolling back to: $BACKUP_TAG"
+              docker tag ${{ env.DOCKERHUB_USERNAME }}/${{ env.BACKEND_IMAGE }}:$BACKUP_TAG \
+                         ${{ env.DOCKERHUB_USERNAME }}/${{ env.BACKEND_IMAGE }}:production-latest
+              docker-compose -f docker-compose.prod.yml up -d
+              echo "✅ Rollback completed"
+            else
+              echo "❌ No backup found for rollback"
+              exit 1
+            fi
