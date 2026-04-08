@@ -4,4 +4,5 @@ export default {
   },
   testEnvironment: "node",
   detectOpenHandles: true,
+  setupFilesAfterEnv: ["./__tests__/setup.js"],
 };

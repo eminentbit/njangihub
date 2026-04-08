@@ -34,8 +34,9 @@ export const createRedisClient = () => {
 };
 
 /**
- * Creates a node-redis client for sessions and general caching
- * connect-redis requires node-redis v4
+ * Creates a node-redis client for general caching (if needed in future)
+ * Note: connect-redis v6 requires ioredis, so sessions use createRedisClient() instead
+ * This function is kept for potential future use with node-redis v4 features
  */
 export const createSessionRedisClient = async () => {
   const client = createClient({

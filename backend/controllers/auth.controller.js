@@ -76,11 +76,10 @@ export const login = async (req, res) => {
       `password ${LOGIN_QUERIES_PROJECTION}`
     );
 
-    console.log("User is:", user.id);
-
     if (!user) {
+      console.log("User not found:", email);
       const draft = await checkDraftStatus(email);
-      console.log("Draft isL", draft);
+      console.log("Draft is:", draft);
       if (draft) {
         const msgMap = {
           pending: "Your account is still pending BOD approval.",
