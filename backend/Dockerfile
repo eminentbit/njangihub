@@ -8,7 +8,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install dependencies (including devDependencies for build)
-RUN npm ci --only=production && \
+RUN npm i --only=production && \
     npm cache clean --force
 
 # Production stage
