@@ -8,7 +8,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install dependencies (including devDependencies for build)
-RUN npm i && \
+RUN npm i --legacy-peer-deps && \
     npm cache clean --force
 
 # Production stage
