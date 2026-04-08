@@ -1,4 +1,4 @@
-import { connect, connection } from "mongoose";
+import mongoose from "mongoose";
 import { config } from "dotenv";
 import bcrypt from "bcrypt";
 import User from "../models/user.model.js";
@@ -76,7 +76,7 @@ async function insertUsersWithHashedPasswords() {
 
   // Connect and insert users
   try {
-    await connect(process.env.MONGODB_URL);
+    await mongoose.connect(process.env.MONGODB_URL);
     console.log("Connected to MongoDB");
 
     await User.insertMany(usersWithHashedPasswords);
@@ -84,7 +84,7 @@ async function insertUsersWithHashedPasswords() {
   } catch (error) {
     console.error("Error:", error);
   } finally {
-    await connection.close();
+    await mongoose.connection.close();
   }
 }
 

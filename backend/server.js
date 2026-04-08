@@ -46,6 +46,7 @@ app.use(
     origin: [
       "http://localhost:5173",
       "http://localhost:5174",
+      "https://njangihub.loopos.org/",
       process.env.FRONTEND_URL,
     ],
     credentials: true,
@@ -69,6 +70,7 @@ app.use("/api/create-njangi", createNjangiRoutes);
 app.use("/api", validationRoutes);
 app.use("/api/contact", contactRouter);
 app.use("/api/member", acceptInvite);
+
 // Mount CSRF protection
 app.use(csrfProtection);
 
@@ -81,6 +83,7 @@ app.use((req, res, next) => {
 app.get("/api/csrf-token", (req, res) => {
   res.json({ csrfToken: req.csrfToken() });
 });
+
 app.use("/api/bod", actionNjangiRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/njangi", njangiRoutes);

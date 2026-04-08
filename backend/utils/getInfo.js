@@ -29,7 +29,7 @@ export const getInfo = async (req) => {
     const fallback = {
       ip:
         req.headers["x-forwarded-for"] ||
-        req.connection.remoteAddress ||
+        req.connection?.remoteAddress ||
         "unknown",
     };
     console.log("⚠️ Using fallback geo info:", fallback);
@@ -45,8 +45,7 @@ export const getInfo = async (req) => {
  */
 export function getBrowserType(userAgent) {
   const parser = new UAParser(userAgent);
-  const browser = parser.getBrowser();
-  return browser.name || "Unknown Browser";
+  return parser.getBrowser().name || "Unknown Browser";
 }
 
 /**
@@ -56,6 +55,5 @@ export function getBrowserType(userAgent) {
  */
 export function getDeviceName(userAgent) {
   const parser = new UAParser(userAgent);
-  const os = parser.getOS();
-  return os.name || "Unknown Device";
+  return parser.getOS().name || "Unknown Device";
 }
