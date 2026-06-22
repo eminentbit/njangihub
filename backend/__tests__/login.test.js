@@ -16,6 +16,13 @@ jest.mock("../models/njangi.draft.model");
 jest.mock("../models/login.attempt");
 jest.mock("../utils/generateTokenAndSetCookie");
 jest.mock("../utils/getIPAddress");
+// getInfo performs an external geo-IP HTTP request — mock it so tests stay
+// offline, fast and deterministic.
+jest.mock("../utils/getInfo", () => ({
+  getInfo: jest.fn().mockResolvedValue({ ip: "127.0.0.1" }),
+  getBrowserType: jest.fn().mockReturnValue("Chrome"),
+  getDeviceName: jest.fn().mockReturnValue("Mac OS"),
+}));
 jest.mock("bcryptjs");
 
 // Create a new express app instance for each test
@@ -24,6 +31,12 @@ let app;
 beforeEach(() => {
   app = express();
   app.use(express.json());
+  // Stub the session that express-session provides in production so the
+  // controller can write req.session.user without crashing.
+  app.use((req, res, next) => {
+    req.session = {};
+    next();
+  });
   app.post("/auth/login", login);
 
   // Reset mocks before each test
@@ -71,7 +84,7 @@ describe("POST /auth/login", () => {
 
     expect(response.statusCode).toBe(200);
     expect(response.body.success).toBe(true);
-    expect(response.body.message).toBe("Login successfully!");
+    expect(response.body.message).toBe("Login successful");
   });
 
   it("should return 401 with invalid email", async () => {

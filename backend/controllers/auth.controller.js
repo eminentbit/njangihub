@@ -44,10 +44,15 @@ export const checkSession = async (req, res) => {
   }
   try {
     const user = await User.findById(req.user.id).select(USER_PROJECTION);
-    if (!user) throw new Error("User not found");
+    if (!user) {
+      return res
+        .status(401)
+        .json({ message: "Unauthorized: User not found" });
+    }
     return res.status(200).json({ user });
   } catch (err) {
-    res.status(401).json({ message: err.message });
+    console.error("checkSession error:", err);
+    return res.status(500).json({ message: "Internal server error" });
   }
 };
 

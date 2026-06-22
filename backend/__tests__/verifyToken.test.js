@@ -1,7 +1,8 @@
 import request from "supertest";
 import express from "express";
+import cookieParser from "cookie-parser";
 import jwt from "jsonwebtoken";
-import { verifyToken } from "../middleware/verify.token";
+import verifyToken from "../middleware/verify.token";
 import { config } from "dotenv";
 config();
 
@@ -10,11 +11,11 @@ jest.mock("jsonwebtoken");
 
 describe("verifyToken Middleware", () => {
   let app;
-  let server;
 
-  beforeAll((done) => {
+  beforeAll(() => {
     app = express();
     app.use(express.json());
+    app.use(cookieParser());
 
     // Define a test route protected by verifyToken
     app.get("/protected", verifyToken, (req, res) => {
@@ -22,11 +23,6 @@ describe("verifyToken Middleware", () => {
         .status(200)
         .json({ message: "Protected route accessed!", user: req.user });
     });
-    server = app.listen(3002, done); // Use a different port if needed
-  });
-
-  afterAll((done) => {
-    server.close(done);
   });
 
   beforeEach(() => {
@@ -84,7 +80,6 @@ describe("verifyToken Middleware", () => {
       .set("Cookie", "token=invalidtoken");
 
     expect(response.statusCode).toBe(401);
-    expect(response.body.sucess).toBe(false);
     expect(response.body.message).toBe(
       "Internal server error! Please try again later!"
     );

@@ -6,6 +6,7 @@ config();
 
 // Mock Redis clients to avoid connection attempts during tests
 jest.mock('../redisClient.js', () => ({
+  __esModule: true,
   createRedisClient: jest.fn(() => ({
     on: jest.fn(),
     connect: jest.fn(),
@@ -25,8 +26,12 @@ jest.mock('../redisClient.js', () => ({
   })),
 }));
 
-// Mock BullMQ queues
+// Mock BullMQ queues.
+// __esModule: true is required so Babel's default-import interop returns the
+// `default` object directly instead of double-wrapping it (which would make
+// emailQueue.add / dbQueue.add undefined).
 jest.mock('../bullMQ/queues/emailQueue.js', () => ({
+  __esModule: true,
   default: {
     add: jest.fn(),
     close: jest.fn(),
@@ -34,6 +39,7 @@ jest.mock('../bullMQ/queues/emailQueue.js', () => ({
 }));
 
 jest.mock('../bullMQ/queues/dbQueue.js', () => ({
+  __esModule: true,
   default: {
     add: jest.fn(),
     close: jest.fn(),
