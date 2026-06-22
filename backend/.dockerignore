@@ -1,0 +1,11 @@
+node_modules
+npm-debug.log*
+.env
+.env.local
+__tests__
+backup
+*.dockerfile
+Dockerfile
+.dockerignore
+.git
+# .env is provided at runtime via docker-compose env_file, so it is not baked into the image.

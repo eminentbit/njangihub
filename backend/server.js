@@ -60,6 +60,11 @@ app.use(express.urlencoded({ extended: false }));
 
 app.use(sessionMiddleware);
 
+// Health check — kept before the rate limiter and CSRF so probes are never blocked.
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "ok", uptime: process.uptime() });
+});
+
 app.use("/", limiter);
 app.use(helmet());
 
