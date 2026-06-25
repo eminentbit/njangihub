@@ -7,9 +7,12 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies (including devDependencies for build)
-RUN npm i --legacy-peer-deps && \
-    npm prune --production && \
+# legacy-peer-deps must apply to EVERY npm command (mailtrap pins an older
+# nodemailer peer) — including `npm prune`, which otherwise re-resolves the
+# tree strictly and fails with ERESOLVE. Set it via env so it's global.
+ENV npm_config_legacy_peer_deps=true
+RUN npm i && \
+    npm prune --omit=dev && \
     npm cache clean --force
 
 # Production stage
