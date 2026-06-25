@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1073.0",
+    "ua-parser-js": "^2.0.4"
+  }
+}

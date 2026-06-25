@@ -38,11 +38,21 @@ export const getInfo = async (req) => {
   }
 };
 
+/**
+ * Returns the browser name based on user agent.
+ * @param {string} userAgent
+ * @returns {string}
+ */
 export function getBrowserType(userAgent) {
   const parser = new UAParser(userAgent);
   return parser.getBrowser().name || "Unknown Browser";
 }
 
+/**
+ * Returns the device OS name based on user agent.
+ * @param {string} userAgent
+ * @returns {string}
+ */
 export function getDeviceName(userAgent) {
   const parser = new UAParser(userAgent);
   return parser.getOS().name || "Unknown Device";

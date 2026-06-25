@@ -12,7 +12,6 @@ export const generateToken = () => crypto.randomBytes(20).toString("hex");
 
 // Utility functions
 const isEmail = (value) => /\S+@\S+\.\S+/.test(value);
-const isPhone = (value) => /^\+?\d{7,15}$/.test(value);
 
 export const inviteMembersToGroup = async (
   inviteMembers,

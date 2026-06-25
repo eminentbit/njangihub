@@ -8,7 +8,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install production dependencies for the worker
-RUN npm install 
+RUN npm install --legacy-peer-deps
 
 # Copy the rest of the application code, specifically the worker directory
 COPY . .

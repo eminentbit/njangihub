@@ -3,6 +3,8 @@ import connectRedis from "connect-redis";
 import { createRedisClient } from "../redisClient.js";
 
 const RedisStore = connectRedis(session);
+
+// Use ioredis for sessions (connect-redis v6 requires ioredis, not node-redis v4)
 const redisClient = createRedisClient();
 
 const sessionMiddleware = session({

@@ -1,0 +1,8 @@
+# Dedicated namespace for the Jenkins controller and the ephemeral build agent
+# pods spun up by the Kubernetes plugin. App deploys land in `njangihub`.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: jenkins
+  labels:
+    app.kubernetes.io/part-of: njangihub-cicd

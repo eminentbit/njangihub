@@ -1,0 +1,9 @@
+node_modules
+dist
+.vite
+.vercel
+npm-debug.log*
+Dockerfile
+.dockerignore
+.git
+# NOTE: .env is intentionally NOT ignored — Vite inlines VITE_* vars at build time.

@@ -1,5 +1,4 @@
 import express from "express";
-import Messages from "../models/message.model.js";
 import {
   getMessages,
   getMessagesByGroup,

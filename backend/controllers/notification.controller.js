@@ -1,5 +1,4 @@
 import NjangiNotification from "../models/notification.model.js";
-import Notification from "../models/notification.model.js";
 
 export const getAllNotifications = async (req, res) => {
   try {
@@ -77,10 +76,9 @@ export const markAllAsRead = async (req, res) => {
 export const deleteNotification = async (req, res) => {
   const { notificationId } = req.params;
   try {
-    const notification = await NjangiNotification.findByIdAndUpdate(
-      notificationId,
-      { isDeleted: true }
-    );
+    await NjangiNotification.findByIdAndUpdate(notificationId, {
+      isDeleted: true,
+    });
 
     res.status(200).json({ message: "Notification deleted successfully" });
   } catch (error) {

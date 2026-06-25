@@ -46,7 +46,7 @@ const createNjangiFlow = async (formData, njangiId, draftUserToken) => {
     }
 
     // Hash password
-    const hashedPassword = await bcrypt.hash(accountSetup.password, 20);
+    const hashedPassword = await bcrypt.hash(accountSetup.password, 10);
 
     // Ensure groupDetails has proper Date objects
     const parsedGroupDetails = {

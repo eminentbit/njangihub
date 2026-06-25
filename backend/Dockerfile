@@ -1,5 +1,5 @@
-# Use Node.js LTS version as the base image
-FROM node:23-slim
+# Multi-stage build for optimized production image
+FROM node:20-alpine AS builder
 
 # Set working directory
 WORKDIR /app
@@ -7,16 +7,39 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm install
+# Install dependencies (including devDependencies for build)
+RUN npm i --legacy-peer-deps && \
+    npm prune --production && \
+    npm cache clean --force
 
-# Copy the rest of the application code
+# Production stage
+FROM node:20-alpine
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Copy dependencies from builder
+COPY --from=builder /app/node_modules ./node_modules
+
+# Copy application code
 COPY . .
 
-RUN npm run insertBods
+# Create non-root user for security
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001 && \
+    chown -R nodejs:nodejs /app
 
-# Expose the port your app runs on
-EXPOSE 3000
+USER nodejs
 
-# Command to run the application
-CMD ["npm", "run", "serve"]
+# Expose port
+EXPOSE 5000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD node -e "require('http').get('http://localhost:5000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+
+# Start application
+CMD ["node", "server.js"]

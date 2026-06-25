@@ -59,7 +59,11 @@ export const updateNjangiDetails = async (req, res) => {
     const sanitizedUpdate = {};
     for (const [key, value] of Object.entries(update)) {
       // Only allow specific known fields
-      if (update.hasOwnProperty(key) && value !== undefined && value !== null) {
+      if (
+        Object.prototype.hasOwnProperty.call(update, key) &&
+        value !== undefined &&
+        value !== null
+      ) {
         sanitizedUpdate[key] = value;
       }
     }

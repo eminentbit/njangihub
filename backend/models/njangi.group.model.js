@@ -14,6 +14,7 @@ const njangiGroupSchema = new Schema(
       ref: MODEL_NAMES.NJANGIDRAFT,
     },
     contributionAmount: { type: Number, required: true },
+    currency: { type: String, default: "XAF", uppercase: true }, // ISO 4217 currency code
     contributionFrequency: {
       type: String,
       enum: ["Weekly", "Monthly", "Bi-weekly"],
@@ -55,7 +56,6 @@ const njangiGroupSchema = new Schema(
     endDate: { type: Date },
     expectedMembers: { type: Number },
     rules: { type: String },
-    currency: { type: String, default: "FCFA" },
     penaltyPercentage: { type: String, default: 20 },
     status: {
       type: String,

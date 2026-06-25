@@ -4,7 +4,6 @@ import NjangiDraft from "../models/njangi.draft.model.js";
 import LastLogin from "../models/login.attempt.js";
 import { generateTokenAndSetCookie } from "../utils/generateTokenAndSetCookie.js";
 import { getBrowserType, getDeviceName, getInfo } from "../utils/getInfo.js";
-import { sendPasswordResetEmail } from "../mail/emails.js";
 import validator from "validator";
 import bcrypt from "bcryptjs";
 import { config } from "dotenv";
@@ -17,7 +16,7 @@ config();
 // Helper: find pending or suspended draft user
 async function checkDraftStatus(email) {
   if (typeof email != "string" || !validator.isEmail(email)) {
-    return res.status(400).json({ message: "Invalid email" });
+    return null;
   }
   const draft = await NjangiDraft.findOne({
     "accountSetup.email": { $eq: email },
@@ -44,10 +43,15 @@ export const checkSession = async (req, res) => {
   }
   try {
     const user = await User.findById(req.user.id).select(USER_PROJECTION);
-    if (!user) throw new Error("User not found");
+    if (!user) {
+      return res
+        .status(401)
+        .json({ message: "Unauthorized: User not found" });
+    }
     return res.status(200).json({ user });
   } catch (err) {
-    res.status(401).json({ message: err.message });
+    console.error("checkSession error:", err);
+    return res.status(500).json({ message: "Internal server error" });
   }
 };
 
@@ -77,7 +81,9 @@ export const login = async (req, res) => {
     );
 
     if (!user) {
+      console.log("User not found:", email);
       const draft = await checkDraftStatus(email);
+      console.log("Draft is:", draft);
       if (draft) {
         const msgMap = {
           pending: "Your account is still pending BOD approval.",
@@ -93,10 +99,14 @@ export const login = async (req, res) => {
         .json({ success: false, message: "Invalid credentials" });
     }
 
+    console.log("Checking if password is valid");
+
     const [valid, lastRecord] = await Promise.all([
       bcrypt.compare(password, user.password),
       LastLogin.findOne({ userId: user.id }).sort({ createdAt: -1 }).lean(),
     ]);
+
+    console.log("isValid: ", valid);
 
     if (!valid) {
       return res
@@ -109,12 +119,16 @@ export const login = async (req, res) => {
       return res.status(403).json({ success: false, message: statusMessage });
     }
 
+    console.log("Status Message:", statusMessage);
+
     generateTokenAndSetCookie(res, user.id);
 
     const { ip } = await getInfo(req);
     const userAgent = req.headers["user-agent"];
     const browser = getBrowserType(userAgent);
+    console.log("Browser is:", browser);
     const device = getDeviceName(userAgent);
+    console.log("Device is:", device);
 
     dbQueue.add(CACHE_NAMES.LOGINALERT, {
       tableName: MODEL_NAMES.LOGINATTEMPT,
@@ -126,10 +140,14 @@ export const login = async (req, res) => {
       },
     });
 
+    console.log("Finsihed adding to queue");
+
     // Send alert only if last login is old
     const now = Date.now();
     const threshold = now - SIGNIN_THRESHOLD_MS;
     const shouldAlert = !lastRecord || lastRecord.createdAt < threshold;
+
+    console.log("Checking if we should alert");
 
     if (shouldAlert) {
       emailQueue.add(CACHE_NAMES.LOGINALERT, {
@@ -142,6 +160,15 @@ export const login = async (req, res) => {
     }
 
     req.user = { id: user.id, role: user.role };
+
+    req.session.user = {
+      id: user.id,
+      role: user.role,
+      loggedInAt: Date.now(),
+      ip: req.ip,
+    };
+
+    console.log("Put user in session");
 
     return res.status(200).json({
       success: true,

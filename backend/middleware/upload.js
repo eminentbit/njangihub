@@ -5,7 +5,7 @@ import { config } from "dotenv";
 
 config();
 
-// === 1. Upload to S3 or DO Spaces ===
+// === 1. Upload to AWS S3 ===
 
 export const uploadChatFileToS3 = async (
   buffer,
@@ -25,27 +25,6 @@ export const uploadChatFileToS3 = async (
   await s3Client.send(command);
 
   return `https://${process.env.AWS_S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
-};
-
-export const uploadChatFileToSpace = async (
-  buffer,
-  fileName,
-  mimetype,
-  folder
-) => {
-  const key = `${folder}/${Date.now()}-${fileName}`;
-
-  const command = new PutObjectCommand({
-    Bucket: process.env.DO_SPACES_BUCKET_NAME,
-    Key: key,
-    Body: buffer,
-    ContentType: mimetype,
-    ACL: "public-read",
-  });
-
-  await s3Client.send(command);
-
-  return `https://${process.env.DO_SPACES_ENDPOINT}/${key}`;
 };
 
 // === 2. Multer Config ===

@@ -1,8 +1,7 @@
 // Account set up
 
-import  { Schema, model } from "mongoose";
+import { Schema, model } from "mongoose";
 import MODEL_NAMES from "../utils/model.names.js";
-import { type } from "os";
 
 const userSchema = new Schema(
   {
@@ -16,6 +15,19 @@ const userSchema = new Schema(
     role: { type: String, enum: ["admin", "member", "bod"], default: "member" },
     creditScore: { type: Number, default: 0 },
     location: { type: String },
+    country: { type: String }, // ISO country code (e.g., CM, US, GB)
+    countryName: { type: String }, // Full country name
+    currency: { type: String, default: "USD" }, // ISO 4217 currency code
+    preferredPaymentMethod: { 
+      type: String, 
+      enum: ["mobile_money", "card"], 
+      default: "card" 
+    },
+    paymentProvider: {
+      type: String,
+      enum: ["campay", "stripe", "mpesa", "mtn", "paystack"],
+      default: "stripe"
+    },
     status: {
       type: String,
       enum: ["active", "pending", "invited", "suspended"],

@@ -1,78 +1,72 @@
-version: "3.8"
-
 services:
-  redis:
-    image: redis:alpine
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
     ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    environment:
-      - REDIS_PASSWORD=mjlsbkCh2z8Ft63
-    command: ["redis-server", "--requirepass", "mjlsbkCh2z8Ft63"]
+      - "8080:80" # host 8080 -> nginx 80 (change to "80:80" for real prod)
+    env_file:
+      - ./frontend/.env
+    restart: always
 
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     ports:
-      - "80:80"
-    depends_on:
-      - redis
-    restart: always
+      - "5000:5000"
     env_file:
-      - backend/.env
+      - ./backend/.env
     environment:
-      - REDIS_PASSWORD=mjlsbkCh2z8Ft63
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-    # ❗ DO NOT mount volumes unless you're developing
-    command: ["npm", "run", "serve"]
+      - NODE_ENV=production
+      # Port the container listens on — must match the published port, the
+      # Dockerfile/compose health checks, and nginx's backend upstream (5000).
+      # Set here so it always wins over any PORT in .env.
+      - PORT=5000
+    volumes:
+      - ./backend:/app
+      - backend_node_modules:/app/node_modules
+    healthcheck:
+      # node-based check: node:alpine has no curl
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://localhost:5000/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: always
+    command: ["npm", "start"]
 
   email-worker:
     build:
       context: ./backend
       dockerfile: email.worker.dockerfile
-    depends_on:
-      - redis
     restart: always
     env_file:
       - backend/.env
-    environment:
-      - REDIS_PASSWORD=mjlsbkCh2z8Ft63
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
     command: ["npm", "run", "emailWorker"]
 
   db-worker:
     build:
       context: ./backend
       dockerfile: db.worker.dockerfile
-    depends_on:
-      - redis
     restart: always
     env_file:
       - backend/.env
-    environment:
-      - REDIS_PASSWORD=mjlsbkCh2z8Ft63
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
     command: ["npm", "run", "dbWorker"]
 
   cronjob:
     build:
       context: ./backend
       dockerfile: cronjob.dockerfile
-    depends_on:
-      - redis
     restart: always
     env_file:
       - backend/.env
-    environment:
-      - REDIS_PASSWORD=mjlsbkCh2z8Ft63
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
     command: ["npm", "run", "cronJob"]
 
 volumes:
-  redis_data:
+  backend_node_modules:

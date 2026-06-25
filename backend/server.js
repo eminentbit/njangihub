@@ -48,9 +48,10 @@ app.use(
       "http://localhost:5174",
       "https://njangihub.loopos.org/",
       process.env.FRONTEND_URL,
-    ].filter(Boolean),
+    ],
     credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE"],
+    optionsSuccessStatus: 200,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   })
 );
 app.set("trust proxy", 1);
@@ -59,6 +60,11 @@ app.use(express.urlencoded({ extended: false }));
 
 app.use(sessionMiddleware);
 
+// Health check — kept before the rate limiter and CSRF so probes are never blocked.
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "ok", uptime: process.uptime() });
+});
+
 app.use("/", limiter);
 app.use(helmet());
 
@@ -66,6 +72,10 @@ app.use(helmet());
 app.use("/api/auth", authRoutes);
 
 app.use("/api/create-njangi", createNjangiRoutes);
+app.use("/api", validationRoutes);
+app.use("/api/contact", contactRouter);
+app.use("/api/member", acceptInvite);
+
 // Mount CSRF protection
 app.use(csrfProtection);
 
@@ -74,18 +84,13 @@ app.use((req, res, next) => {
   next();
 });
 
-app.get("/api", (req, res) => {
-  res.status(200).json({ message: "App working well" });
-});
-
 // CSRF token route — must come AFTER csrfProtection
 app.get("/api/csrf-token", (req, res) => {
   res.json({ csrfToken: req.csrfToken() });
 });
-app.use("/api", validationRoutes);
+
 app.use("/api/bod", actionNjangiRoutes);
 app.use("/api/notifications", notificationRoutes);
-app.use("/api/member", acceptInvite);
 app.use("/api/njangi", njangiRoutes);
 app.use("/api/invites", ValidateInviteToken);
 app.use("/api/admin", validateDraftId);
@@ -94,7 +99,6 @@ app.use("/api/state-dashboard", updateNjangiDetails);
 app.use("/api/admin", adminRoutes);
 app.use("/api/njangi-ndraft", getNjangiDraftId);
 app.use("/api/payment", paymentRoutes);
-app.use("/api/contact", contactRouter);
 app.use("/api/user", userRoutes);
 
 // ─── CREATE HTTP + SOCKET.IO SERVER ────────────────────────────────────────────
@@ -119,7 +123,7 @@ const startServer = async () => {
       console.log("🔌 A client connected:", socket.id);
 
       // 1️⃣ Handle joinRoom: socket joins a room named after groupId
-      socket.on("joinRoom", async ({ groupId, userId }) => {
+      socket.on("joinRoom", async ({ groupId }) => {
         if (!groupId) return;
 
         socket.join(groupId);

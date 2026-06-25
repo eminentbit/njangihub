@@ -1,0 +1,156 @@
+# Jenkins controller. An initContainer pre-installs plugins into the ref dir so
+# the main container boots with everything present; JCasC then configures it.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jenkins
+  namespace: jenkins
+  labels:
+    app: jenkins
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate # RWO JENKINS_HOME volume cannot attach to two pods at once
+  selector:
+    matchLabels:
+      app: jenkins
+  template:
+    metadata:
+      labels:
+        app: jenkins
+    spec:
+      serviceAccountName: jenkins
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000 # make the PVC + plugins volume writable by the jenkins user
+      initContainers:
+        - name: install-plugins
+          image: jenkins/jenkins:lts-jdk17
+          command:
+            - sh
+            - -c
+            - >-
+              jenkins-plugin-cli --verbose
+              --plugin-file /var/jenkins_config/plugins.txt
+              --plugin-download-directory /var/jenkins_plugins
+          volumeMounts:
+            - name: plugins
+              mountPath: /var/jenkins_plugins
+            - name: plugins-txt
+              mountPath: /var/jenkins_config
+      containers:
+        - name: jenkins
+          image: jenkins/jenkins:lts-jdk17
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+            - name: agent
+              containerPort: 50000
+          env:
+            - name: JAVA_OPTS
+              value: >-
+                -Djenkins.install.runSetupWizard=false
+            - name: CASC_JENKINS_CONFIG
+              value: /var/jenkins_casc/jenkins.yaml
+            - name: JENKINS_UC_DOWNLOAD
+              value: "https://updates.jenkins.io/download"
+            - name: JENKINS_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: jenkins-secrets
+                  key: admin-password
+            - name: DOCKERHUB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: jenkins-secrets
+                  key: dockerhub-username
+            - name: DOCKERHUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: jenkins-secrets
+                  key: dockerhub-token
+            - name: GITHUB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: jenkins-secrets
+                  key: github-username
+            - name: GITHUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: jenkins-secrets
+                  key: github-token
+          volumeMounts:
+            - name: jenkins-home
+              mountPath: /var/jenkins_home
+            - name: plugins
+              mountPath: /usr/share/jenkins/ref/plugins
+            - name: casc
+              mountPath: /var/jenkins_casc
+          readinessProbe:
+            httpGet:
+              path: /login
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 12
+          livenessProbe:
+            httpGet:
+              path: /login
+              port: 8080
+            initialDelaySeconds: 90
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: 300m
+              memory: 1Gi
+            limits:
+              cpu: "1"
+              memory: 1536Mi
+      volumes:
+        - name: jenkins-home
+          persistentVolumeClaim:
+            claimName: jenkins-home
+        - name: plugins
+          emptyDir: {}
+        - name: plugins-txt
+          configMap:
+            name: jenkins-plugins
+        - name: casc
+          configMap:
+            name: jenkins-casc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jenkins
+  namespace: jenkins
+  labels:
+    app: jenkins
+spec:
+  selector:
+    app: jenkins
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+---
+# Service for the JNLP agent (inbound) channel on 50000.
+apiVersion: v1
+kind: Service
+metadata:
+  name: jenkins-agent
+  namespace: jenkins
+  labels:
+    app: jenkins
+spec:
+  selector:
+    app: jenkins
+  ports:
+    - name: agent
+      port: 50000
+      targetPort: 50000

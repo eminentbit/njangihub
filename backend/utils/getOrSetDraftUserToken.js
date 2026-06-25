@@ -15,8 +15,10 @@ export const getOrSetDraftUserToken = (req, res) => {
     token = uuidv4();
     res.cookie("draftUserToken", token, {
       httpOnly: true,
-      maxAge: 1000 * 60 * 60 * 24 * 365,
-    }); // 1 year
+      secure: process.env.NODE_ENV == "production",
+      sameSite: process.env.NODE_ENV == "production" ? "None" : "Lax",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
   }
   return token;
 };

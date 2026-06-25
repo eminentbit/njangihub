@@ -69,13 +69,15 @@ export const validatePhoneNumber = async (req, res) => {
   try {
     console.log(`Validating phone number: ${phoneNumber}`);
 
-    const [inDrafts, inGroups, inUsers] = await Promise.all([
+    const [inDrafts, inUsers] = await Promise.all([
       NjangiDrafts.exists({ "accountSetup.phoneNumber": phoneNumber }),
-      NjangiGroup.exists({ phoneNumber }),
+      // NjangiGroup.exists({ phoneNumber }),
       User.exists({ phoneNumber }),
     ]);
 
-    const exists = inDrafts || inGroups || inUsers;
+    console.log(inDrafts, inUsers);
+
+    const exists = inDrafts || inUsers;
     return res.json({ valid: !exists });
   } catch (error) {
     console.error("Phone number validation error:", error);

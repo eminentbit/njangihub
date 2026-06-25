@@ -1,0 +1,103 @@
+name: Deploy to Development
+
+on:
+  push:
+    branches: [ develop ]
+  workflow_dispatch:
+
+env:
+  DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+  BACKEND_IMAGE: njangihub-backend
+  DEPLOY_PATH: /opt/njangihub
+
+jobs:
+  deploy-dev:
+    name: Deploy to Development Server
+    runs-on: ubuntu-latest
+    environment: development
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set image tag
+        id: vars
+        run: echo "IMAGE_TAG=develop-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Deploy to Development Server
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.DEV_VPS_HOST }}
+          username: ${{ secrets.DEV_VPS_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.DEV_VPS_PORT || 22 }}
+          script: |
+            echo "🚀 Starting deployment to development environment..."
+            
+            # Navigate to deployment directory
+            cd ${{ env.DEPLOY_PATH }}/dev || mkdir -p ${{ env.DEPLOY_PATH }}/dev && cd ${{ env.DEPLOY_PATH }}/dev
+            
+            # Pull latest code
+            if [ -d ".git" ]; then
+              git fetch origin develop
+              git reset --hard origin/develop
+            else
+              git clone -b develop ${{ secrets.REPO_URL }} .
+            fi
+            
+            # Login to Docker Hub
+            echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+            
+            # Pull latest images
+            docker pull ${{ env.DOCKERHUB_USERNAME }}/${{ env.BACKEND_IMAGE }}:${{ steps.vars.outputs.IMAGE_TAG }}
+            
+            # Tag as latest for this environment
+            docker tag ${{ env.DOCKERHUB_USERNAME }}/${{ env.BACKEND_IMAGE }}:${{ steps.vars.outputs.IMAGE_TAG }} \
+                       ${{ env.DOCKERHUB_USERNAME }}/${{ env.BACKEND_IMAGE }}:dev-latest
+            
+            # Stop and remove old containers
+            docker-compose -f docker-compose.dev.yml down || true
+            
+            # Start services
+            docker-compose -f docker-compose.dev.yml up -d
+            
+            # Clean up old images
+            docker image prune -f
+            
+            # Show running containers
+            docker ps
+            
+            echo "✅ Deployment to development completed!"
+
+      - name: Verify deployment
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.DEV_VPS_HOST }}
+          username: ${{ secrets.DEV_VPS_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.DEV_VPS_PORT || 22 }}
+          script: |
+            # Wait for services to be ready
+            sleep 10
+            
+            # Check if containers are running
+            if docker ps | grep -q njangihub; then
+              echo "✅ Containers are running"
+              docker ps --filter "name=njangihub"
+            else
+              echo "❌ Containers failed to start"
+              docker logs $(docker ps -a -q --filter "name=njangihub" | head -1)
+              exit 1
+            fi
+            
+            # Health check
+            curl -f http://localhost:5000/health || echo "⚠️  Health check endpoint not responding"
+
+      - name: Notify deployment status
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ Development deployment successful"
+          else
+            echo "❌ Development deployment failed"
+          fi

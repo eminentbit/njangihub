@@ -52,7 +52,7 @@ const acceptInvite = async (req, res) => {
     }
 
     // Hash password
-    const passwordHash = await bcrypt.hash(password, 20);
+    const passwordHash = await bcrypt.hash(password, 10);
 
     // 1. Create user
     const newUser = await User.create({

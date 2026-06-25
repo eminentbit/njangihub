@@ -1,0 +1,105 @@
+# Two ConfigMaps consumed by the controller pod:
+#   - jenkins-plugins : list of plugins pre-installed by an initContainer
+#   - jenkins-casc    : Jenkins Configuration-as-Code (security, k8s cloud,
+#                       Docker Hub + GitHub credentials, and the seed pipeline job)
+# This makes the controller configuration reproducible — no click-ops in the UI.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: jenkins-plugins
+  namespace: jenkins
+data:
+  plugins.txt: |
+    configuration-as-code
+    kubernetes
+    workflow-aggregator
+    git
+    github
+    job-dsl
+    credentials
+    credentials-binding
+    plain-credentials
+    pipeline-stage-view
+    pipeline-utility-steps
+    matrix-auth
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: jenkins-casc
+  namespace: jenkins
+data:
+  jenkins.yaml: |
+    jenkins:
+      systemMessage: "njangihub CI/CD — managed by Configuration-as-Code"
+      # All builds run on ephemeral Kubernetes agent pods, never the controller.
+      numExecutors: 0
+      securityRealm:
+        local:
+          allowsSignup: false
+          users:
+            - id: "admin"
+              password: "${JENKINS_ADMIN_PASSWORD}"
+      authorizationStrategy:
+        loggedInUsersCanDoAnything:
+          allowAnonymousRead: false
+      clouds:
+        - kubernetes:
+            name: "kubernetes"
+            serverUrl: "https://kubernetes.default"
+            namespace: "jenkins"
+            jenkinsUrl: "http://jenkins.jenkins.svc.cluster.local:8080"
+            jenkinsTunnel: "jenkins-agent.jenkins.svc.cluster.local:50000"
+            directConnection: false
+            connectTimeout: 30
+            readTimeout: 60
+            containerCapStr: "5"
+            podRetention: "never"
+            podLabels:
+              - key: "jenkins"
+                value: "agent"
+    credentials:
+      system:
+        domainCredentials:
+          - credentials:
+              - usernamePassword:
+                  scope: GLOBAL
+                  id: "dockerhub"
+                  description: "Docker Hub (push images)"
+                  username: "${DOCKERHUB_USERNAME}"
+                  password: "${DOCKERHUB_TOKEN}"
+              - usernamePassword:
+                  scope: GLOBAL
+                  id: "github"
+                  description: "GitHub (clone private repo)"
+                  username: "${GITHUB_USERNAME}"
+                  password: "${GITHUB_TOKEN}"
+    unclassified:
+      location:
+        url: "https://jenkins.njangihub.loop-os.org/"
+    jobs:
+      - script: |
+          pipelineJob('njangihub') {
+            description('njangihub CI/CD — build backend + frontend images, push to Docker Hub, deploy to DOKS on main')
+            definition {
+              cpsScm {
+                scm {
+                  git {
+                    remote {
+                      url('https://github.com/eminentbit/njangihub.git')
+                      credentials('github')
+                    }
+                    branch('*/main')
+                  }
+                }
+                scriptPath('Jenkinsfile')
+                lightweight(true)
+              }
+            }
+            triggers {
+              // Poll main every 2 min (works without webhook admin); GitHub
+              // push webhook (/github-webhook/) also triggers it when configured.
+              scm('H/2 * * * *')
+              githubPush()
+            }
+          }

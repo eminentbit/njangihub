@@ -1,7 +1,7 @@
 // controllers/message.controller.js
 
 import Messages from "../models/message.model.js";
-import { uploadChatFileToS3 } from "../middleware/upload.chat.js";
+import { uploadChatFileToS3 } from "../middleware/upload.js";
 
 // Get all messages (optional: for admin/debugging)
 export const getMessages = async (req, res) => {
@@ -71,9 +71,8 @@ export const sendMessage = async (req, res) => {
     await message.save();
 
     // 5️⃣ Populate before sending back
-    const populatedMessage = await message
-      .populate("senderId", "name")
-      .execPopulate();
+    // Mongoose 6+: document.populate() returns a promise; execPopulate() was removed.
+    const populatedMessage = await message.populate("senderId", "name");
 
     // 6️⃣ Return the newly created message (so Front-End can emit via socket)
     return res.status(201).json({
