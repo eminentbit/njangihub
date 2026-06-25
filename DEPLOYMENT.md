@@ -4,7 +4,7 @@ njangihub runs on a dedicated **DigitalOcean Kubernetes (DOKS)** cluster and
 deploys via **Jenkins** running inside that cluster. The structure mirrors the
 CareBridge setup.
 
-```
+```text
 GitHub (main)  ──poll/webhook──▶  Jenkins (in-cluster)
                                     │  ephemeral agent pod:
                                     │   • kaniko ×2  → build backend + frontend images
@@ -24,19 +24,19 @@ GitHub (main)  ──poll/webhook──▶  Jenkins (in-cluster)
 | Ingress | ingress-nginx v1.13.3 — LoadBalancer **157.245.21.16** |
 | TLS | cert-manager v1.18.2 + `letsencrypt-prod` ClusterIssuer (auto-renew) |
 | Registry | Docker Hub `docker.io/ejohdaryl/njangihub-{backend,frontend}` |
-| App URL | https://njangihub.loop-os.org |
-| Jenkins URL | https://jenkins.njangihub.loop-os.org |
+| App URL | <https://njangihub.loop-os.org> |
+| Jenkins URL | <https://jenkins.njangihub.loop-os.org> |
 
 DNS (A records at the `loop-os.org` host, both → `157.245.21.16`):
 
-```
+```text
 njangihub.loop-os.org           A   157.245.21.16
 jenkins.njangihub.loop-os.org   A   157.245.21.16
 ```
 
 ## Repo layout
 
-```
+```text
 Jenkinsfile                     # kaniko build → Docker Hub → kubectl rollout (5 deploys)
 frontend/.env.production        # committed, public VITE_* build vars
 k8s/njangihub/deployments.yaml  # namespace, 5 deployments, 2 services, ingress
