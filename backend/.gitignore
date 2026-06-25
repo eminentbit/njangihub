@@ -28,5 +28,3 @@ backup_backend
 *.njsproj
 *.sln
 *.sw?
-
-package-lock.json
