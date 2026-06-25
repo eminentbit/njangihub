@@ -4,7 +4,6 @@ import NjangiDraft from "../models/njangi.draft.model.js";
 import LastLogin from "../models/login.attempt.js";
 import { generateTokenAndSetCookie } from "../utils/generateTokenAndSetCookie.js";
 import { getBrowserType, getDeviceName, getInfo } from "../utils/getInfo.js";
-import { sendPasswordResetEmail } from "../mail/emails.js";
 import validator from "validator";
 import bcrypt from "bcryptjs";
 import { config } from "dotenv";
@@ -17,7 +16,7 @@ config();
 // Helper: find pending or suspended draft user
 async function checkDraftStatus(email) {
   if (typeof email != "string" || !validator.isEmail(email)) {
-    return res.status(400).json({ message: "Invalid email" });
+    return null;
   }
   const draft = await NjangiDraft.findOne({
     "accountSetup.email": { $eq: email },

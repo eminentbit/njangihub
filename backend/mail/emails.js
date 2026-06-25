@@ -17,7 +17,6 @@ import {
   CONTACT_CONFIRMATION_EMAIL_TEMPLATE,
 } from "./emailTemplates.js";
 import NjangiGroup from "../models/njangi.group.model.js";
-import { getInfo } from "../utils/getInfo.js";
 import User from "../models/user.model.js";
 import NjangiNotification from "../models/notification.model.js";
 

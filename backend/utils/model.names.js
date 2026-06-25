@@ -1,7 +1,6 @@
 const MODEL_NAMES = {
   USER: "User",
   GROUP: "NjangiGroup",
-  TRANSACTION: "",
   BODAPPROVAL: "BODApproval",
   TRANSACTION: "Transaction",
   NJANGILOAN: "NjangiLoan",

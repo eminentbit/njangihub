@@ -107,7 +107,7 @@ export function fromSmallestUnit(amount, currency = "USD") {
  * @returns {boolean} True if valid
  */
 export function isValidCurrency(currency) {
-  return currency && CURRENCY_SYMBOLS.hasOwnProperty(currency);
+  return Boolean(currency) && Object.prototype.hasOwnProperty.call(CURRENCY_SYMBOLS, currency);
 }
 
 /**

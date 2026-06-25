@@ -1,5 +1,9 @@
+import axios from "axios";
+import { v4 as uuidv4 } from "uuid";
 import Transaction from "../models/transaction.model.js";
 import User from "../models/user.model.js";
+
+const API_KEY = process.env.CAMPAY_API_KEY;
 
 export async function processPayout(group) {
   const { position } = group.getPositionAndRounds();

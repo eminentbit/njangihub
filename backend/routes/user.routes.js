@@ -9,7 +9,7 @@ import {
 import limiter from "../middleware/limiter.js";
 import verifyToken from "../middleware/verify.token.js";
 import { requestLoan } from "../controllers/loan.controller.js";
-import { editProfile } from "../controllers/edit.profile.controlller.js";
+import { editProfile } from "../controllers/edit.profile.controller.js";
 
 const router = Router();
 

@@ -1,5 +1,4 @@
 import { getGatewayForLocation } from "../services/payment.gateway.factory.js";
-import { createRedisClient } from "../redisClient.js";
 import Transaction from "../models/transaction.model.js";
 import NjangiGroup from "../models/njangi.group.model.js";
 import User from "../models/user.model.js";
@@ -9,8 +8,6 @@ import { formatCurrency } from "../utils/currency.utils.js";
 import { config } from "dotenv";
 
 config();
-
-const redis = createRedisClient();
 
 /**
  * Unified payment initiation endpoint
@@ -44,9 +41,13 @@ export async function initiatePayment(req, res) {
       return res.status(404).json({ error: "Group not found" });
     }
 
-    const isMember = group.groupMembers.includes(req.user.id);
+    const isMember = group.groupMembers.some(
+      (memberId) => memberId.toString() === req.user.id,
+    );
     if (!isMember) {
-      return res.status(403).json({ error: "You are not a member of this group" });
+      return res
+        .status(403)
+        .json({ error: "You are not a member of this group" });
     }
 
     const user = await User.findById(req.user.id);
@@ -67,7 +68,7 @@ export async function initiatePayment(req, res) {
     // Determine payment gateway (from location or explicit choice)
     const provider = paymentMethod || location.provider || user.paymentProvider;
     const currency = location.currency || user.currency || "XAF";
-    
+
     const gateway = getGatewayForLocation({ provider });
 
     // Generate reference
@@ -75,11 +76,13 @@ export async function initiatePayment(req, res) {
 
     // Initiate payment based on provider
     let paymentResult;
-    
+
     if (provider === "campay") {
       // Mobile money payment (Campay)
       if (!phone) {
-        return res.status(400).json({ error: "Phone number is required for mobile money" });
+        return res
+          .status(400)
+          .json({ error: "Phone number is required for mobile money" });
       }
 
       if (!/^(\+237)?\d{8,15}$/.test(phone)) {
@@ -126,7 +129,6 @@ export async function initiatePayment(req, res) {
         currency,
         amount: formatCurrency(amount, currency),
       });
-
     } else if (provider === "stripe") {
       // Credit card payment (Stripe)
       paymentResult = await gateway.initiatePayment({
@@ -225,7 +227,9 @@ export async function checkPaymentStatus(req, res) {
     if (provider === "campay") {
       statusResult = await gateway.checkStatus(transaction.reference);
     } else if (provider === "stripe") {
-      statusResult = await gateway.checkStatus(transaction.stripePaymentIntentId);
+      statusResult = await gateway.checkStatus(
+        transaction.stripePaymentIntentId,
+      );
     } else {
       return res.status(400).json({ error: "Unknown payment provider" });
     }
@@ -242,7 +246,7 @@ export async function checkPaymentStatus(req, res) {
       await transaction.save();
 
       // Update group contributions (same logic as webhook for Stripe)
-      const { groupId, amount, currency } = transaction;
+      const { groupId, amount } = transaction;
 
       const updatedGroup = await NjangiGroup.findOneAndUpdate(
         { _id: groupId, "memberContributions.member": req.user.id },
@@ -255,7 +259,7 @@ export async function checkPaymentStatus(req, res) {
             "memberContributions.$.lastPaymentDate": new Date(),
           },
         },
-        { new: true }
+        { new: true },
       );
 
       if (!updatedGroup) {
@@ -368,7 +372,10 @@ export async function confirmStripePayment(req, res) {
 
   try {
     const gateway = getGatewayForLocation({ provider: "stripe" });
-    const result = await gateway.confirmPayment(paymentIntentId, paymentMethodId);
+    const result = await gateway.confirmPayment(
+      paymentIntentId,
+      paymentMethodId,
+    );
 
     return res.status(200).json({
       success: true,

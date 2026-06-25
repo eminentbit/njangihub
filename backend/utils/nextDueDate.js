@@ -1,4 +1,4 @@
-function calculateNextDueDate({
+export function calculateNextDueDate({
   startDate,
   contributionFrequency,
   lastPaymentDate,

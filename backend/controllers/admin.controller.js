@@ -54,7 +54,8 @@ export const getMembersOfGroup = async (req, res) => {
  */
 export const getAllMembersOfAdminGroups = async (req, res) => {
   try {
-    const groups = await NjangiGroup.find({ adminId: req.user.id }).populate(
+    const adminId = req.user.id;
+    const groups = await NjangiGroup.find({ adminId }).populate(
       "groupMembers",
       "-password",
     );

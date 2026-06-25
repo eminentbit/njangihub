@@ -17,7 +17,7 @@ class PaymentGateway {
    * @param {Object} params - Payment parameters
    * @returns {Promise<Object>} Payment initialization result
    */
-  async initiatePayment(params) {
+  async initiatePayment(_params) {
     throw new Error("initiatePayment() must be implemented");
   }
 
@@ -26,7 +26,7 @@ class PaymentGateway {
    * @param {string} reference - Payment reference
    * @returns {Promise<Object>} Payment status
    */
-  async checkStatus(reference) {
+  async checkStatus(_reference) {
     throw new Error("checkStatus() must be implemented");
   }
 
@@ -35,7 +35,7 @@ class PaymentGateway {
    * @param {Object} params - Withdrawal parameters
    * @returns {Promise<Object>} Withdrawal result
    */
-  async withdraw(params) {
+  async withdraw(_params) {
     throw new Error("withdraw() must be implemented");
   }
 }

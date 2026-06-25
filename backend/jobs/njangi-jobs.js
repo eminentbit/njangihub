@@ -54,10 +54,6 @@ cron.schedule("0 8 * * *", async () => {
 
           if (!user?.email) continue;
 
-          const message = isOverdue
-            ? "You have an overdue Njangi contribution!"
-            : "Your Njangi contribution is due in 2 days!";
-
           const dueDateFormatted = nextDueDate.toDateString();
 
           const paymentLink = `${process.env.FRONTEND_URL}/${user.role}/payments`;

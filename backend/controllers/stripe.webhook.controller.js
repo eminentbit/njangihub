@@ -58,7 +58,7 @@ export async function handleStripeWebhook(req, res) {
  * Handle successful payment
  */
 async function handlePaymentSucceeded(paymentIntent) {
-  const { id, amount, currency, metadata } = paymentIntent;
+  const { id } = paymentIntent;
 
   console.log(`💰 Payment succeeded: ${id}`);
 
@@ -118,7 +118,8 @@ async function handlePaymentSucceeded(paymentIntent) {
     const user = await User.findById(memberId);
 
     if (!group || !user) {
-      return res.status(404).json({ error: "User or group not found" });
+      console.warn(`User or group not found for payment intent: ${id}`);
+      return;
     }
 
     // Log activity

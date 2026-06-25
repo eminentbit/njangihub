@@ -123,7 +123,7 @@ const startServer = async () => {
       console.log("🔌 A client connected:", socket.id);
 
       // 1️⃣ Handle joinRoom: socket joins a room named after groupId
-      socket.on("joinRoom", async ({ groupId, userId }) => {
+      socket.on("joinRoom", async ({ groupId }) => {
         if (!groupId) return;
 
         socket.join(groupId);

@@ -88,4 +88,4 @@ jobs:
 
       - name: Run ESLint
         working-directory: ./backend
-        run: npx eslint . || echo "ESLint not configured"
+        run: npm run lint

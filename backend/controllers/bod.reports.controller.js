@@ -15,6 +15,12 @@ export const createReport = async (req, res) => {
   });
 
   console.log(report);
+
+  res.status(201).json({
+    success: true,
+    message: "Report created successfully",
+    data: report,
+  });
 };
 
 export const viewReport = async (req, res) => {

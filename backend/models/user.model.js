@@ -2,7 +2,6 @@
 
 import { Schema, model } from "mongoose";
 import MODEL_NAMES from "../utils/model.names.js";
-import { type } from "os";
 
 const userSchema = new Schema(
   {
