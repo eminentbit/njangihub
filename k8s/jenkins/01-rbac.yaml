@@ -1,0 +1,76 @@
+# RBAC for Jenkins.
+#
+# Two scopes:
+#   1. In `jenkins`: the controller (and agents) need to create/manage the
+#      ephemeral build pods spun up by the Kubernetes plugin.
+#   2. In `njangihub`: the deploy stage runs `kubectl set image` + `rollout`
+#      against the app Deployments, so the same ServiceAccount needs patch/read
+#      there. A RoleBinding in `njangihub` referencing the `jenkins` SA grants
+#      that cross-namespace access.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: jenkins
+  namespace: jenkins
+---
+# Manage build agent pods in the jenkins namespace.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: jenkins-agents
+  namespace: jenkins
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "pods/exec", "pods/log"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["pods/portforward"]
+    verbs: ["create", "get"]
+  - apiGroups: [""]
+    resources: ["configmaps", "events"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: jenkins-agents
+  namespace: jenkins
+subjects:
+  - kind: ServiceAccount
+    name: jenkins
+    namespace: jenkins
+roleRef:
+  kind: Role
+  name: jenkins-agents
+  apiGroup: rbac.authorization.k8s.io
+---
+# Deploy into the njangihub namespace (rolling updates only — no create/delete).
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: njangihub-deployer
+  namespace: njangihub
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "watch", "patch", "update"]
+  - apiGroups: ["apps"]
+    resources: ["deployments/scale", "replicasets"]
+    verbs: ["get", "list", "watch", "patch", "update"]
+  - apiGroups: [""]
+    resources: ["pods", "pods/log"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: jenkins-njangihub-deployer
+  namespace: njangihub
+subjects:
+  - kind: ServiceAccount
+    name: jenkins
+    namespace: jenkins
+roleRef:
+  kind: Role
+  name: njangihub-deployer
+  apiGroup: rbac.authorization.k8s.io

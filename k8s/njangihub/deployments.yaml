@@ -1,0 +1,304 @@
+# njangihub application — namespace, workloads, services, ingress.
+#
+# Images live on Docker Hub (docker.io/ejohdaryl/njangihub-{backend,frontend});
+# the Jenkins pipeline rolls new tags in with `kubectl set image`.
+#
+# The 3 background workers (email/db/cron) reuse the SAME backend image with a
+# different start command — only `backend` and `frontend` images are built in CI.
+#
+# Runtime config is supplied by two objects created out-of-band (NOT in git):
+#   - configmap/njangihub-config   non-secret env (URLs, redis host, smtp, ...)
+#   - secret/njangihub-secrets     secret env (Mongo URI, JWT, Stripe, AWS, ...)
+# See .env.production.example for the full key list.
+#
+# MongoDB + Redis are external managed services (unchanged).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: njangihub
+---
+# ─── Backend API (Express + Socket.IO) ──────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: njangihub
+  labels:
+    app: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      imagePullSecrets:
+        - name: njangihub-regcred
+      containers:
+        - name: backend
+          image: docker.io/ejohdaryl/njangihub-backend:latest
+          ports:
+            - containerPort: 5000
+          envFrom:
+            - configMapRef:
+                name: njangihub-config
+            - secretRef:
+                name: njangihub-secrets
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 40
+            periodSeconds: 20
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "750m"
+              memory: "512Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: njangihub
+  labels:
+    app: backend
+spec:
+  selector:
+    app: backend
+  ports:
+    - name: http
+      port: 5000
+      targetPort: 5000
+---
+# ─── Frontend (static SPA served by nginx) ──────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: njangihub
+  labels:
+    app: frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      imagePullSecrets:
+        - name: njangihub-regcred
+      containers:
+        - name: frontend
+          image: docker.io/ejohdaryl/njangihub-frontend:latest
+          ports:
+            - containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "300m"
+              memory: "128Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: njangihub
+  labels:
+    app: frontend
+spec:
+  selector:
+    app: frontend
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+---
+# ─── BullMQ email worker (reuses backend image) ─────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: email-worker
+  namespace: njangihub
+  labels:
+    app: email-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: email-worker
+  template:
+    metadata:
+      labels:
+        app: email-worker
+    spec:
+      imagePullSecrets:
+        - name: njangihub-regcred
+      containers:
+        - name: email-worker
+          image: docker.io/ejohdaryl/njangihub-backend:latest
+          command: ["npm", "run", "emailWorker"]
+          envFrom:
+            - configMapRef:
+                name: njangihub-config
+            - secretRef:
+                name: njangihub-secrets
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "128Mi"
+            limits:
+              cpu: "300m"
+              memory: "256Mi"
+---
+# ─── BullMQ database worker (reuses backend image) ──────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: db-worker
+  namespace: njangihub
+  labels:
+    app: db-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: db-worker
+  template:
+    metadata:
+      labels:
+        app: db-worker
+    spec:
+      imagePullSecrets:
+        - name: njangihub-regcred
+      containers:
+        - name: db-worker
+          image: docker.io/ejohdaryl/njangihub-backend:latest
+          command: ["npm", "run", "dbWorker"]
+          envFrom:
+            - configMapRef:
+                name: njangihub-config
+            - secretRef:
+                name: njangihub-secrets
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "128Mi"
+            limits:
+              cpu: "300m"
+              memory: "256Mi"
+---
+# ─── Cron jobs (node-cron; reuses backend image) ────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cronjob
+  namespace: njangihub
+  labels:
+    app: cronjob
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cronjob
+  template:
+    metadata:
+      labels:
+        app: cronjob
+    spec:
+      imagePullSecrets:
+        - name: njangihub-regcred
+      containers:
+        - name: cronjob
+          image: docker.io/ejohdaryl/njangihub-backend:latest
+          command: ["npm", "run", "cronJob"]
+          envFrom:
+            - configMapRef:
+                name: njangihub-config
+            - secretRef:
+                name: njangihub-secrets
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "128Mi"
+            limits:
+              cpu: "300m"
+              memory: "256Mi"
+---
+# ─── Public HTTPS ingress ───────────────────────────────────────────────────
+# cert-manager issues + renews the Let's Encrypt cert into njangihub-tls.
+# DNS: njangihub.loop-os.org -> ingress-nginx LoadBalancer IP.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: njangihub
+  namespace: njangihub
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/proxy-body-size: "25m"
+    # Long timeouts + buffering off so Socket.IO websockets stay open.
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - njangihub.loop-os.org
+      secretName: njangihub-tls
+  rules:
+    - host: njangihub.loop-os.org
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 5000
+          - path: /socket.io
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 5000
+          - path: /health
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 5000
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80

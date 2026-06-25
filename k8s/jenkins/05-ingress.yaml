@@ -1,0 +1,31 @@
+# Public HTTPS entry for Jenkins via the ingress-nginx LoadBalancer.
+# cert-manager issues + renews a Let's Encrypt cert into the jenkins-tls secret.
+# DNS: add an A record  jenkins.njangihub.loop-os.org -> <ingress LB IP>
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: jenkins
+  namespace: jenkins
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - jenkins.njangihub.loop-os.org
+      secretName: jenkins-tls
+  rules:
+    - host: jenkins.njangihub.loop-os.org
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: jenkins
+                port:
+                  number: 8080
