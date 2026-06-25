@@ -64,15 +64,21 @@ class CampayGateway extends PaymentGateway {
         headers: { "Content-Type": "application/json" },
       });
       this.token = response.data.token;
-      
+
       // Refresh token after 50 minutes (expires after 1 hour)
-      setTimeout(() => {
-        this.token = null;
-      }, 50 * 60 * 1000);
+      setTimeout(
+        () => {
+          this.token = null;
+        },
+        50 * 60 * 1000,
+      );
 
       return this.token;
     } catch (error) {
-      console.error("Campay token error:", error?.response?.data || error.message);
+      console.error(
+        "Campay token error:",
+        error?.response?.data || error.message,
+      );
       throw new Error("Failed to get Campay authentication token");
     }
   }
@@ -106,7 +112,7 @@ class CampayGateway extends PaymentGateway {
             Authorization: `Token ${token}`,
             "Content-Type": "application/json",
           },
-        }
+        },
       );
 
       return {
@@ -133,7 +139,7 @@ class CampayGateway extends PaymentGateway {
     try {
       const token = await this.getToken();
       const url = `${this.baseUrl}/api/transaction/${reference}`;
-      
+
       const response = await axios.get(url, {
         headers: {
           Authorization: `Token ${token}`,
@@ -180,7 +186,7 @@ class CampayGateway extends PaymentGateway {
             Authorization: `Token ${token}`,
             "Content-Type": "application/json",
           },
-        }
+        },
       );
 
       return {

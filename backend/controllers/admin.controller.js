@@ -56,7 +56,7 @@ export const getAllMembersOfAdminGroups = async (req, res) => {
   try {
     const groups = await NjangiGroup.find({ adminId: req.user.id }).populate(
       "groupMembers",
-      "-password"
+      "-password",
     );
 
     const allMembersMap = new Map();
@@ -88,14 +88,14 @@ export const getAllMembersOfAdminGroups = async (req, res) => {
 export const getAdminGroups = async (req, res) => {
   try {
     const groups = await NjangiGroup.find({ adminId: req.user.id }).populate(
-      "groupMembers"
+      "groupMembers",
     );
     const groupsWithIsAdmin = groups.map((group) => {
       const nextDue = group.getNextPaymentDate(req.user.id);
       const groupObj = group.toObject();
       const { position, totalRounds } = group.getPositionAndRounds();
       const { totalContributed, totalReceived } = group.getUserFinancialSummary(
-        req.user.id
+        req.user.id,
       );
       groupObj.isAdmin = String(group.adminId) === String(req.user.id);
       groupObj.position = position;
@@ -156,7 +156,7 @@ export const fetchGroupById = async (req, res) => {
 
     const totalFunds = group.memberContributions.reduce(
       (sum, mc) => sum + (mc.totalAmountPaid || 0),
-      0
+      0,
     );
 
     const groupInfo = {
@@ -328,7 +328,7 @@ export const getStatusHistory = async (req, res) => {
     const formattedDrafts = drafts.map((draft) => formatGroup(draft, true));
 
     const combinedHistory = [...formattedGroups, ...formattedDrafts].sort(
-      (a, b) => new Date(b.timeline[0].date) - new Date(a.timeline[0].date)
+      (a, b) => new Date(b.timeline[0].date) - new Date(a.timeline[0].date),
     );
 
     res.status(200).json(combinedHistory);
@@ -356,7 +356,7 @@ export const getInvitedMembersOfGroup = async (req, res) => {
   const { groupId } = req.params;
   try {
     const invites = await Invite.find({ groupId }).select(
-      "email phone status invitedBy expiresAt createdAt updatedAt"
+      "email phone status invitedBy expiresAt createdAt updatedAt",
     );
     res.status(200).json(invites);
   } catch (error) {
@@ -390,7 +390,7 @@ export const inviteMemberToGroup = async (req, res) => {
       adminFirstName,
       adminLastName,
       contributionFrequency,
-      contributionAmount
+      contributionAmount,
     );
     res
       .status(201)
@@ -480,6 +480,10 @@ export const addMemberToGroup = async (req, res) => {
   const group = await NjangiGroup.findById(groupId);
   const token = generateToken();
 
+  if (!group) {
+    return res.status(404).json({ message: "Group not found" });
+  }
+
   await Invite.create({
     groupId,
     inviteToken: token,
@@ -498,7 +502,7 @@ export const addMemberToGroup = async (req, res) => {
     group.contributionAmount,
     group.contributionFrequency,
     group.name,
-    registrationUrl
+    registrationUrl,
   );
 
   return res
@@ -587,9 +591,8 @@ export const removeMember = async (req, res) => {
     const groupMemberCount = await GroupMember.countDocuments({ groupId });
 
     // Fetch NjangiGroup to access groupMembers array
-    const njangiGroup = await NjangiGroup.findById(groupId).select(
-      "groupMembers"
-    );
+    const njangiGroup =
+      await NjangiGroup.findById(groupId).select("groupMembers");
 
     if (!njangiGroup) {
       return res.status(404).json({ error: "Njangi group not found" });
@@ -652,7 +655,7 @@ export const getAdminGroupPaymentStatus = async (req, res) => {
       const paidMemberIds = new Set(paidMembers.map((m) => m._id.toString()));
 
       const unpaidMembers = group.groupMembers.filter(
-        (member) => !paidMemberIds.has(member._id.toString())
+        (member) => !paidMemberIds.has(member._id.toString()),
       );
 
       return {
@@ -691,11 +694,11 @@ export const notifyDefaulters = async (req, res) => {
       const paidMemberIds = new Set(
         group.memberContributions
           .filter((mc) => mc.totalAmountPaid > 0)
-          .map((mc) => mc.member._id.toString())
+          .map((mc) => mc.member._id.toString()),
       );
 
       const defaulters = group.groupMembers.filter(
-        (member) => !paidMemberIds.has(member._id.toString())
+        (member) => !paidMemberIds.has(member._id.toString()),
       );
 
       const nextDue = group.getNextPaymentDate();
@@ -709,7 +712,7 @@ export const notifyDefaulters = async (req, res) => {
           group.startDate,
           member.lastName || "",
           member.firstName || "",
-          `${process.env.FRONTEND_URL}/${member.role}/payments`
+          `${process.env.FRONTEND_URL}/${member.role}/payments`,
         );
 
         notificationsSent++;

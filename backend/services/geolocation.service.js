@@ -7,12 +7,12 @@ const redis = createRedisClient();
 const COUNTRY_CURRENCY_MAP = {
   // Cameroon - FCFA
   CM: { currency: "XAF", paymentMethod: "mobile_money", provider: "campay" },
-  
+
   // Major African countries with mobile money
   KE: { currency: "KES", paymentMethod: "mobile_money", provider: "mpesa" },
   GH: { currency: "GHS", paymentMethod: "mobile_money", provider: "mtn" },
   NG: { currency: "NGN", paymentMethod: "mobile_money", provider: "paystack" },
-  
+
   // International - Credit Cards (Stripe)
   US: { currency: "USD", paymentMethod: "card", provider: "stripe" },
   GB: { currency: "GBP", paymentMethod: "card", provider: "stripe" },
@@ -50,7 +50,12 @@ const DEFAULT_CONFIG = {
  */
 export async function getLocationFromIP(ipAddress) {
   // Skip localhost/private IPs
-  if (!ipAddress || ipAddress === "::1" || ipAddress.startsWith("127.") || ipAddress.startsWith("192.168.")) {
+  if (
+    !ipAddress ||
+    ipAddress === "::1" ||
+    ipAddress.startsWith("127.") ||
+    ipAddress.startsWith("192.168.")
+  ) {
     console.log("Local IP detected, using default config");
     return {
       country: "US",
@@ -76,8 +81,8 @@ export async function getLocationFromIP(ipAddress) {
     const response = await axios.get(`https://ipapi.co/${ipAddress}/json/`, {
       timeout: 5000,
       headers: {
-        'User-Agent': 'NjangiHub/1.0'
-      }
+        "User-Agent": "NjangiHub/1.0",
+      },
     });
 
     const { country_code, country_name, error } = response.data;
@@ -109,7 +114,7 @@ export async function getLocationFromIP(ipAddress) {
     return result;
   } catch (error) {
     console.error("Geolocation API error:", error.message);
-    
+
     // Fallback to default
     return {
       country: "US",
@@ -124,13 +129,13 @@ export async function getLocationFromIP(ipAddress) {
  * Handles proxies and various headers
  */
 export function getClientIP(req) {
-  const forwarded = req.headers['x-forwarded-for'];
+  const forwarded = req.headers["x-forwarded-for"];
   if (forwarded) {
-    return forwarded.split(',')[0].trim();
+    return forwarded.split(",")[0].trim();
   }
-  
+
   return (
-    req.headers['x-real-ip'] ||
+    req.headers["x-real-ip"] ||
     req.connection?.remoteAddress ||
     req.socket?.remoteAddress ||
     req.ip
@@ -145,7 +150,9 @@ export async function locationDetectionMiddleware(req, res, next) {
     const ip = getClientIP(req);
     const location = await getLocationFromIP(ip);
     req.userLocation = location;
-    console.log(`📍 Detected location: ${location.countryName} (${location.country}) - ${location.currency}`);
+    console.log(
+      `📍 Detected location: ${location.countryName} (${location.country}) - ${location.currency}`,
+    );
     next();
   } catch (error) {
     console.error("Location detection middleware error:", error);

@@ -12,9 +12,9 @@ import { fromSmallestUnit } from "../utils/currency.utils.js";
  */
 export async function handleStripeWebhook(req, res) {
   const signature = req.headers["stripe-signature"];
-  
+
   let event;
-  
+
   try {
     // Verify webhook signature
     event = verifyWebhookSignature(req.body, signature);
@@ -59,7 +59,7 @@ export async function handleStripeWebhook(req, res) {
  */
 async function handlePaymentSucceeded(paymentIntent) {
   const { id, amount, currency, metadata } = paymentIntent;
-  
+
   console.log(`💰 Payment succeeded: ${id}`);
 
   try {
@@ -97,7 +97,7 @@ async function handlePaymentSucceeded(paymentIntent) {
           "memberContributions.$.lastPaymentDate": new Date(),
         },
       },
-      { new: true }
+      { new: true },
     );
 
     // If member doesn't have contribution record yet
@@ -116,6 +116,10 @@ async function handlePaymentSucceeded(paymentIntent) {
 
     const group = await NjangiGroup.findById(groupId);
     const user = await User.findById(memberId);
+
+    if (!group || !user) {
+      return res.status(404).json({ error: "User or group not found" });
+    }
 
     // Log activity
     await NjangiActivityLog.create({
@@ -146,7 +150,7 @@ async function handlePaymentSucceeded(paymentIntent) {
  */
 async function handlePaymentFailed(paymentIntent) {
   const { id } = paymentIntent;
-  
+
   console.log(`❌ Payment failed: ${id}`);
 
   try {
@@ -169,7 +173,7 @@ async function handlePaymentFailed(paymentIntent) {
  */
 async function handlePaymentCanceled(paymentIntent) {
   const { id } = paymentIntent;
-  
+
   console.log(`🚫 Payment canceled: ${id}`);
 
   try {
@@ -193,7 +197,7 @@ async function handlePaymentCanceled(paymentIntent) {
  */
 async function handleChargeRefunded(charge) {
   const { payment_intent, amount, currency } = charge;
-  
+
   console.log(`🔄 Charge refunded: ${payment_intent}`);
 
   try {
@@ -205,7 +209,7 @@ async function handleChargeRefunded(charge) {
       const refundAmount = fromSmallestUnit(amount, currency.toUpperCase());
       transaction.note = `${transaction.note || ""} | Refunded: ${refundAmount} ${currency.toUpperCase()}`;
       await transaction.save();
-      
+
       console.log(`Refund recorded for transaction ${transaction.id}`);
     }
   } catch (error) {

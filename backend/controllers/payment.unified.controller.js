@@ -50,6 +50,9 @@ export async function initiatePayment(req, res) {
     }
 
     const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
 
     // Update user's location and currency preferences if not set
     if (!user.country && location) {

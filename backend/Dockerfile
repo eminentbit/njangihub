@@ -9,6 +9,7 @@ COPY package*.json ./
 
 # Install dependencies (including devDependencies for build)
 RUN npm i --legacy-peer-deps && \
+    npm prune --production && \
     npm cache clean --force
 
 # Production stage

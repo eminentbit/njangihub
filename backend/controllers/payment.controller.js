@@ -41,7 +41,7 @@ export async function getCampayToken(req, res) {
   } catch (error) {
     console.error(
       "Campay token error:",
-      error?.response?.data || error.message
+      error?.response?.data || error.message,
     );
     return res.status(500).json({ error: "Failed to fetch Campay token" });
   }
@@ -82,7 +82,7 @@ export const getPaymentLink = async (req, res) => {
           Authorization: `Token ${token}`,
           "Content-Type": "application/json",
         },
-      }
+      },
     );
 
     const transaction = await Transaction.create({
@@ -101,7 +101,7 @@ export const getPaymentLink = async (req, res) => {
   } catch (error) {
     console.error(
       "Payment link error:",
-      error?.response?.data || error.message
+      error?.response?.data || error.message,
     );
     return res.status(error.response?.status || 500).json({
       error: error.response?.data || "Failed to create payment link",
@@ -199,7 +199,7 @@ export const initiatePayment = async (req, res) => {
   } catch (error) {
     console.error(
       "Initiate payment error:",
-      error?.response?.data || error.message
+      error?.response?.data || error.message,
     );
     return res.status(error.response?.status || 500).json({
       success: false,
@@ -251,11 +251,9 @@ export const checkPaymentStatus = async (req, res) => {
 
     console.log(response.data);
 
-    const status = response.data.status;
+    const status = response.data.status?.toLowerCase() || "";
 
-    const message = "SUCCESS".toLowerCase();
-
-    if (status.includes(message)) {
+    if (!status.includes("success")) {
       return res
         .status(200)
         .json({ status, message: "Payment not successful yet." });
@@ -279,7 +277,7 @@ export const checkPaymentStatus = async (req, res) => {
           "memberContributions.$.lastPaymentDate": new Date(),
         },
       },
-      { new: true }
+      { new: true },
     );
 
     // If the member doesn’t have a contribution record yet
@@ -298,6 +296,10 @@ export const checkPaymentStatus = async (req, res) => {
 
     const group = await NjangiGroup.findById(groupId);
     const user = await User.findById(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
 
     // Log the contribution
     await NjangiActivityLog.create({
@@ -322,7 +324,7 @@ export const checkPaymentStatus = async (req, res) => {
   } catch (error) {
     console.error(
       "checkPaymentStatus error:",
-      error?.response?.data || error.message
+      error?.response?.data || error.message,
     );
     return res.status(error.response?.status || 500).json({
       error: error.response?.data?.message || "Error verifying payment",

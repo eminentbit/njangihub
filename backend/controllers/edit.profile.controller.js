@@ -6,6 +6,20 @@ export const editProfile = async (req, res) => {
     console.log("User Id form edit profile form backend: ", userId);
     const { firstName, lastName, email, phone, location } = req.body;
 
+    if (email) {
+      const existingUser = await User.findOne({
+        email,
+        _id: { $ne: userId },
+      });
+
+      if (existingUser) {
+        return res.status(400).json({
+          success: false,
+          message: "Email is already in use",
+        });
+      }
+    }
+
     // Update user profile
     const updatedUser = await User.findByIdAndUpdate(
       userId,
@@ -16,7 +30,7 @@ export const editProfile = async (req, res) => {
         phoneNumber: phone,
         location,
       },
-      { new: true }
+      { new: true },
     ).select("-password");
 
     if (!updatedUser) {
